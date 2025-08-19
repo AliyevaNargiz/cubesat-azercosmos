@@ -1,0 +1,20 @@
+# Java build artifacts
+*.class
+
+# Local libraries
+*.jar
+
+# Orekit data (large, local)
+orekit-data/
+orekit-data-*/
+orekit-data-main/
+*.zip
+
+# OS clutter
+Thumbs.db
+.DS_Store
+
+# IDE settings
+*.iml
+.idea/
+.vscode/
