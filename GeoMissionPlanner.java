@@ -35,19 +35,16 @@ public class GeoMissionPlanner {
         Locale.setDefault(Locale.US);
 
         try {
-            // 0) Set up Orekit data context
-            if (args.length > 0) {
-                String orekitPath = args[0];
-                File orekitData = new File(orekitPath);
-                if (orekitData.isDirectory()) {
-                    org.orekit.data.LazyLoadedDataContext dataContext = new org.orekit.data.LazyLoadedDataContext();
-                    dataContext.getDataProvidersManager().addProvider(new DirectoryCrawler(orekitData));
-                    org.orekit.data.DataContext.setDefault(dataContext);
-                } else {
-                    System.err.println("Orekit data path not found: " + orekitData.getAbsolutePath());
-                    System.exit(1);
-                }
-            }
+
+            // Load Orekit data from a folder called "orekit-data" in the project directory
+File orekitData = new File("orekit-data");
+if (!orekitData.exists() || !orekitData.isDirectory()) {
+    System.err.println("Orekit data folder not found: " + orekitData.getAbsolutePath());
+    System.exit(1);
+}
+DataProvidersManager manager = DataContext.getDefault().getDataProvidersManager();
+manager.addProvider(new DirectoryCrawler(orekitData));
+
 
             // 1) Inputs you can change
             //    Launch site: CSG (Kourou), French Guiana (approx)
@@ -249,17 +246,20 @@ public class GeoMissionPlanner {
         }
     }
 
-    // ---- Utility: sub-satellite longitude from TLE at date ----
+
+
     static double satSubLonDeg(TLE tle, AbsoluteDate date) {
         TLEPropagator prop = TLEPropagator.selectExtrapolator(tle);
-        PVCoordinates posITRF = prop.propagate(date).getPVCoordinates(FramesFactory.getITRF(IERSConventions.IERS_2010, true));
+        PVCoordinates pv = prop.propagate(date).getPVCoordinates(FramesFactory.getEME2000());
         Frame itrf = FramesFactory.getITRF(IERSConventions.IERS_2010, true);
         BodyShape earth = new OneAxisEllipsoid(Constants.WGS84_EARTH_EQUATORIAL_RADIUS,
                                                Constants.WGS84_EARTH_FLATTENING, itrf);
-        GeodeticPoint gp = earth.transform(posITRF.getPosition(), itrf, date);
+        // Use Orekit's transform from EME2000 to ITRF at the given date
+        PVCoordinates pvITRF = FramesFactory.getEME2000().getTransformTo(itrf, date).transformPVCoordinates(pv);
+        GeodeticPoint gp = earth.transform(pvITRF.getPosition(), itrf, date);
         return Math.toDegrees(gp.getLongitude());
     }
-
+    
     // ---- Utility: rough sublon of GTO apogee point when circularizing (Kepler-only, no Earth rotation) ----
     static double subLonOfKeplerAtDate(org.orekit.orbits.KeplerianOrbit orb, AbsoluteDate dateAtApogee) {
         // Propagate to apogee using Keplerian model and convert to Earth-fixed longitude
